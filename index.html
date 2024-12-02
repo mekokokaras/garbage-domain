@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Garbage domain</title>
+    <script>
+      function getQueryParams() {
+        const queryString = window.location.search.substring(1); // Remove the "?" at the start
+        const params = {};
+        const pairs = queryString.split("&");
+
+        for (let pair of pairs) {
+          const [key, value] = pair.split("=");
+          if (key) {
+            params[decodeURIComponent(key)] = decodeURIComponent(
+              value === "true"
+            );
+          }
+        }
+
+        return {
+          useCookiesAsStorage: params["cookieStorage"] === "true",
+          localStorageUserId: params["localStorageUserId"] === "true",
+        };
+      }
+
+      function createCookie(name, value) {
+        const getCookie = (name) => {
+          const match = document.cookie.match(
+            new RegExp("(^| )" + name + "=([^;]+)")
+          );
+          return match ? match[2] : null;
+        };
+
+        if (!getCookie(name)) {
+          const expiresDate = new Date();
+
+          expiresDate.setTime(
+            expiresDate.getTime() + 180 * 24 * 60 * 60 * 1000
+          );
+
+          document.cookie = `${name}=${value}; SameSite=None; Secure; path=/; expires=${expiresDate.toUTCString()};`;
+        }
+      }
+
+      function copyOptimizelyDataToLocalStorage(optimizelyData) {
+        for (const key in optimizelyData) {
+          if (optimizelyData.hasOwnProperty(key)) {
+            localStorage.setItem(key, optimizelyData[key]);
+          }
+        }
+      }
+
+      function copyOptimizelyDataToCookie(optimizelyData) {
+        for (const key in optimizelyData) {
+          if (optimizelyData.hasOwnProperty(key)) {
+            createCookie(key, optimizelyData[key]);
+          }
+        }
+      }
+
+      function getDataFromCookies() {
+        const optimizelyDataFromCookies = {};
+
+        const allCookies = document.cookie;
+
+        const cookiesArray = allCookies.split(";");
+
+        cookiesArray.forEach((cookie) => {
+          cookie = cookie.trim();
+
+          if (cookie.startsWith("optimizely_data$$")) {
+            const [key, value] = cookie.split("=");
+
+            const decodedKey = decodeURIComponent(key);
+
+            const decodedValue = decodeURIComponent(value);
+
+            optimizelyDataFromCookies[decodedKey] = decodedValue;
+          }
+        });
+
+        return optimizelyDataFromCookies;
+      }
+
+      /* Init */
+      const { useCookiesAsStorage, localStorageUserId } = getQueryParams();
+
+      console.log(
+        `QUERY PARAMS: { cookieStorage: ${useCookiesAsStorage}, localStorageUserId: ${useCookiesAsStorage} }`
+      );
+
+      window.addEventListener(
+        "message",
+        function (event) {
+          const { cookieName, cookieValue, localStorageData } = event.data;
+
+          if (cookieName && cookieValue) {
+            console.log("RECEIVED COOKIE: ", cookieName, "=", cookieValue);
+
+            console.log("RECEIVED DATA: ", localStorageData);
+
+            createCookie(cookieName, cookieValue);
+
+            /* Set optimizelyUserId to localStorage */
+            localStorageUserId && localStorage.setItem(cookieName, cookieValue);
+
+            /* (DEFAULT) Populate garbage-domain's localStorage with optimizelyData$$.
+             - Chrome: NO
+             - Firefox: YES
+            */
+            !useCookiesAsStorage &&
+              copyOptimizelyDataToLocalStorage(localStorageData);
+
+            /* 
+             Store optimizelyData$$ as cross-origin cookies
+             - Chrome: YES
+             - Firefox: YES 
+            */
+            useCookiesAsStorage && copyOptimizelyDataToCookie(localStorageData);
+          }
+        },
+        false
+      );
+
+      /* Populate localStorage with optimizelyData$$ stored as cookies on init */
+      if (localStorage.length === 0 && useCookiesAsStorage) {
+        copyOptimizelyDataToLocalStorage(getDataFromCookies());
+      }
+    </script>
+  </head>
+  <body>
+    <p>Garbage domain</p>
+  </body>
+</html>
