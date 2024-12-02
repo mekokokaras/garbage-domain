@@ -101,10 +101,10 @@
 
             console.log("RECEIVED DATA: ", localStorageData);
 
-            // createCookie(cookieName, cookieValue);
+            createCookie(cookieName, cookieValue);
 
             /* Set optimizelyUserId to localStorage */
-            localStorage.setItem(cookieName, cookieValue);
+            localStorageUserId && localStorage.setItem(cookieName, cookieValue);
 
             /* (DEFAULT) Populate garbage-domain's localStorage with optimizelyData$$.
              - Chrome: NO
